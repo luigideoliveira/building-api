@@ -14,11 +14,12 @@ def connect_database():
         conn = psycopg2.connect(host=db_host,port=db_port,dbname=db_name,user=db_user,password=db_password)
         cursor = conn.cursor()
         print("Database connection was succesull!")
+        return conn, cursor
     except Exception as error:
         print("Connection to database failed")
         print("Error: ", error)
         
-    return conn, cursor
+    
 
 def parse_cursor_return(cursor):
     # Captura o nome das colunas
@@ -41,19 +42,78 @@ def parse_cursor_return(cursor):
     
         
 def select(table_name, parameters=None):
-    conn, cursor = connect_database()
-    
-    if not parameters:
-        # Executa a instrução SQL
-        cursor.execute(f"SELECT * FROM {table_name}")
-        json_message = parse_cursor_return(cursor)
+    try: 
+        conn, cursor = connect_database()
         
-    else:
+        if not parameters:
+            # Executa a instrução SQL
+            try:
+                cursor.execute(f"SELECT * FROM {table_name}")
+                json_message = parse_cursor_return(cursor)
+            except Exception as error:
+                print("An error ocurred when try to insert register on database")
+                print("Error: ", error)
+                json_message = {"error": "An error ocurred when try to select registers on database", "error_details": error}
+                
+        else:
+            # Transforma as chaves do dicionário em uma lista
+            parameters_keys_list = list(parameters.keys())
+            
+            # Cria um template da consulta a ser realizada
+            sql_query = f'SELECT * FROM {table_name} WHERE '
+            
+            # Para cada chave no dicionário dos parâmetros da query
+            for param in parameters.keys():
+                # Verifica se é o último parâmetro do dicionário
+                if len(parameters_keys_list) - 1 == parameters_keys_list.index(param):
+                    # Verifica se é uma string ou um número para, corretamente, montar a query SQL
+                    if isinstance(parameters[param], str):
+                        if '%' in parameters[param]:
+                            sql_query += f"{param} like '{parameters[param]}'"
+                        else:
+                            sql_query += f"{param} = '{parameters[param]}'"
+                    elif isinstance(parameters[param], (int, float)):
+                        sql_query += f"{param} = {parameters[param]}"
+                else:
+                    # Caso não seja o último parâmetro do dicionário, adiciona a cláusula AND
+                    if isinstance(parameters[param], str):
+                        if '%' in parameters[param]:
+                            sql_query += f"{param} like '{parameters[param]}' and "
+                        else: 
+                            sql_query += f"{param} = '{parameters[param]}' and "
+                    elif isinstance(parameters[param], (int, float)):
+                        sql_query += f"{param} = {parameters[param]} and "
+                    
+            print(sql_query)
+            # Executa a instrução SQL
+            cursor.execute(sql_query)
+            
+            json_message = parse_cursor_return(cursor)
+                
+        cursor.close()
+        conn.close()
+
+        return json_message    
+    except:
+        json_message = {"error": "An error ocurred when try to select registers on database! Contact the support."}
+        return json_message
+
+def insert(table_name, parameters=None):
+    try:
+        conn, cursor = connect_database()
+        
         # Transforma as chaves do dicionário em uma lista
         parameters_keys_list = list(parameters.keys())
         
         # Cria um template da consulta a ser realizada
-        sql_query = f'SELECT * FROM {table_name} WHERE '
+        sql_query = f'INSERT INTO {table_name} ('
+        
+        for params in parameters_keys_list:
+            if len(parameters_keys_list) - 1 == parameters_keys_list.index(params):
+                sql_query += f'{params}) VALUES ('
+            else: 
+                sql_query += f'{params},'
+        
         
         # Para cada chave no dicionário dos parâmetros da query
         for param in parameters.keys():
@@ -61,33 +121,32 @@ def select(table_name, parameters=None):
             if len(parameters_keys_list) - 1 == parameters_keys_list.index(param):
                 # Verifica se é uma string ou um número para, corretamente, montar a query SQL
                 if isinstance(parameters[param], str):
-                    if '%' in parameters[param]:
-                        sql_query += f"{param} like '{parameters[param]}'"
-                    else:
-                        sql_query += f"{param} = '{parameters[param]}'"
+                    sql_query += f"'{parameters[param]}')"
                 elif isinstance(parameters[param], (int, float)):
-                    sql_query += f"{param} = {parameters[param]}"
+                    sql_query += f"{parameters[param]})"
             else:
                 # Caso não seja o último parâmetro do dicionário, adiciona a cláusula AND
                 if isinstance(parameters[param], str):
-                    if '%' in parameters[param]:
-                        sql_query += f"{param} like '{parameters[param]}' and "
-                    else: 
-                        sql_query += f"{param} = '{parameters[param]}' and "
+                    sql_query += f"'{parameters[param]}',"
                 elif isinstance(parameters[param], (int, float)):
-                    sql_query += f"{param} = {parameters[param]} and "
-                
-        print(sql_query)
-        # Executa a instrução SQL
-        cursor.execute(sql_query)
+                    sql_query += f"{parameters[param]},"
+                    
+
+        # Executa a instrução SQL e realiza o commit
+        try:
+            cursor.execute(sql_query)
+            conn.commit()        
+            json_message = {"return": "The register was successfully inserted on database."}
+        except Exception as error:
+            print("An error ocurred when try to insert register on database")
+            print("Error: ", error)
+            json_message = {"error": "An error ocurred when try to insert register on database", "error_details": error}
+                    
+        cursor.close()
+        conn.close()
         
-        json_message = parse_cursor_return(cursor)
-            
-    cursor.close()
-    conn.close()
+        return json_message
     
-    return json_message
-
-# json_return = select('public_api.users', {'status':'true', 'user_name': '%oliveira'})
-
-# print(json_return)
+    except:
+        json_message = {"error": "An error ocurred when try to insert register on database! Contact the support."}
+        return json_message
