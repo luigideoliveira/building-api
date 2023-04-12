@@ -131,7 +131,7 @@ def insert(table_name, parameters=None):
                 elif isinstance(parameters[param], (int, float)):
                     sql_query += f"{parameters[param]},"
                     
-
+        print(sql_query)
         # Executa a instrução SQL e realiza o commit
         try:
             cursor.execute(sql_query)
