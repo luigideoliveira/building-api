@@ -11,7 +11,7 @@ def index():
 @app.route('/users/', methods=['GET'])
 def users():
     # Captura as informações de nome enviados
-    parameters = eval(request.args.get("parameters", None))
+    parameters = request.args.get("parameters", None)
     
     # Para debugar, exibiremos a mensagem
     print(parameters)
@@ -22,8 +22,8 @@ def users():
     # Verifica se o usuário enviou alguma coisa
     if not parameters:
         response = select(table_name='public_api.users')
-    elif isinstance(parameters, dict):
-        response = select(table_name='public_api.users', parameters=parameters)
+    elif isinstance(eval(parameters), dict):
+        response = select(table_name='public_api.users', parameters=eval(parameters))
         
     return response
 
